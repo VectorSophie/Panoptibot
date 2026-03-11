@@ -1,0 +1,22 @@
+[Unit]
+Description=Panoptibot Discord analytics bot
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=panoptibot
+Group=panoptibot
+WorkingDirectory=/opt/panoptibot
+EnvironmentFile=/opt/panoptibot/.env
+Environment=PANOPTIBOT_HOME=/opt/panoptibot
+Environment=LOGS_DIR=/opt/panoptibot/logs
+Environment=MODELS_DIR=/opt/panoptibot/models
+ExecStart=/bin/sh -lc 'exec "$(command -v uv)" run panoptibot'
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
