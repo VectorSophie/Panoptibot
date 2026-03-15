@@ -15,6 +15,7 @@ from panoptibot.bot.session_tracker import SessionTracker
 from panoptibot.commands import debug as debug_command
 from panoptibot.commands import emoji_culture as emoji_culture_command
 from panoptibot.commands import graph as graph_command
+from panoptibot.commands import health as health_command
 from panoptibot.commands import influence as influence_command
 from panoptibot.commands import stats as stats_command
 from panoptibot.commands import summary as summary_command
@@ -69,6 +70,7 @@ class PanoptibotClient(discord.Client):
         influence_command.register(self.tree, self.services)
         emoji_culture_command.register(self.tree, self.services)
         graph_command.register(self.tree, self.services)
+        health_command.register(self.tree, self.services)
         debug_command.register(self.tree, self.services)
         if self.services.settings.guild_id is not None:
             guild = discord.Object(id=self.services.settings.guild_id)

@@ -269,6 +269,15 @@ class Neo4jClient:
             per_user=per_user,
         )
 
+    async def check_connection(self) -> bool:
+        try:
+            rows = await self._execute_read("RETURN 1 AS ok")
+        except Exception:
+            return False
+        if not rows:
+            return False
+        return rows[0].get("ok") == 1
+
     async def _execute_read(
         self, query: str, **parameters: Any
     ) -> list[dict[str, Any]]:

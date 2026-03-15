@@ -8,6 +8,15 @@ from panoptibot.bot.context import ServiceContainer
 from panoptibot.bot.security import enforce_command_access
 
 
+def _format_message_reference(
+    guild_id: int | None, channel_id: str, message_id: str
+) -> str:
+    if guild_id is None:
+        return f"`{message_id}`"
+    url = f"https://discord.com/channels/{guild_id}/{channel_id}/{message_id}"
+    return f"<{url}>"
+
+
 def register(
     tree: app_commands.CommandTree[discord.Client], services: ServiceContainer
 ) -> None:
@@ -36,13 +45,17 @@ def register(
                 f"Missed message candidates scanned: {len(candidates)}",
                 "Ranked catch-up messages:",
             ]
+            guild_id = interaction.guild_id
             for item in ranked:
+                message_ref = _format_message_reference(
+                    guild_id, item.channel_id, item.message_id
+                )
                 lines.append(
-                    f"- message `{item.message_id}` in <#{item.channel_id}> by <@{item.author_id}> "
+                    f"- message {message_ref} in <#{item.channel_id}> by <@{item.author_id}> "
                     f"score={item.score:.2f} reactions={item.reaction_count} replies={item.reply_count}"
                 )
             thread_lines = [
-                f"- thread candidate `{item.message_id}` in <#{item.channel_id}>"
+                f"- thread candidate {_format_message_reference(guild_id, item.channel_id, item.message_id)} in <#{item.channel_id}>"
                 for item in ranked
                 if item.reply_count > 0
             ]

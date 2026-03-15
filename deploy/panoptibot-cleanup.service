@@ -1,0 +1,15 @@
+[Unit]
+Description=Panoptibot log cleanup
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=panoptibot
+Group=panoptibot
+WorkingDirectory=/opt/panoptibot
+EnvironmentFile=-/opt/panoptibot/.env
+Environment=PANOPTIBOT_HOME=/opt/panoptibot
+Environment=LOGS_DIR=/opt/panoptibot/logs
+ExecStart=/bin/sh -lc 'exec "$(command -v uv)" run panoptibot-cleanup'
+SyslogIdentifier=panoptibot-cleanup

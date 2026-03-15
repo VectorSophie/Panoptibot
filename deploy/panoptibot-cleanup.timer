@@ -1,0 +1,10 @@
+[Unit]
+Description=Panoptibot log cleanup timer
+
+[Timer]
+OnCalendar=daily
+Persistent=true
+RandomizedDelaySec=10m
+
+[Install]
+WantedBy=timers.target
