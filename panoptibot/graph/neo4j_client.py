@@ -278,6 +278,17 @@ class Neo4jClient:
             return False
         return rows[0].get("ok") == 1
 
+    async def check_connection_with_latency(self) -> tuple[bool, float | None]:
+        start_time = datetime.now(UTC)
+        try:
+            rows = await self._execute_read("RETURN 1 AS ok")
+        except Exception:
+            return False, None
+        if not rows or rows[0].get("ok") != 1:
+            return False, None
+        latency_ms = (datetime.now(UTC) - start_time).total_seconds() * 1000.0
+        return True, latency_ms
+
     async def _execute_read(
         self, query: str, **parameters: Any
     ) -> list[dict[str, Any]]:
