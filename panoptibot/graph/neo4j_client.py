@@ -6,12 +6,7 @@ from datetime import UTC, datetime, timedelta
 from time import sleep
 from typing import Any, LiteralString, cast
 
-from neo4j import (
-    GraphDatabase,
-    NotificationDisabledClassification,
-    NotificationMinimumSeverity,
-    Query,
-)
+from neo4j import GraphDatabase, Query
 from neo4j.exceptions import Neo4jError, ServiceUnavailable, SessionExpired
 
 from panoptibot.bot.config import Settings
@@ -27,7 +22,6 @@ class Neo4jClient:
         self.driver = GraphDatabase.driver(
             settings.neo4j_uri,
             auth=(settings.neo4j_user, settings.neo4j_password),
-            warn_notification_severity=NotificationMinimumSeverity.OFF,
         )
 
     async def close(self) -> None:
@@ -293,12 +287,7 @@ class Neo4jClient:
         self, query: str, **parameters: Any
     ) -> list[dict[str, Any]]:
         def _runner() -> list[dict[str, Any]]:
-            with self.driver.session(
-                database=None,
-                notifications_disabled_classifications={
-                    NotificationDisabledClassification.UNRECOGNIZED
-                },
-            ) as session:
+            with self.driver.session(database=None) as session:
                 result = session.run(Query(cast(LiteralString, query)), **parameters)
                 return [record.data() for record in result]
 
@@ -359,12 +348,7 @@ class Neo4jClient:
             delay = 0.5
             for attempt in range(3):
                 try:
-                    with self.driver.session(
-                        database=None,
-                        notifications_disabled_classifications={
-                            NotificationDisabledClassification.UNRECOGNIZED
-                        },
-                    ) as session:
+                    with self.driver.session(database=None) as session:
                         session.execute_write(callback)
                     return
                 except RetryableErrors:

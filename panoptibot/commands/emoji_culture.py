@@ -6,6 +6,7 @@ import discord
 from discord import app_commands
 from PIL import Image
 
+from panoptibot.analytics.emoji_stats import format_emoji_label
 from panoptibot.bot.context import ServiceContainer
 from panoptibot.bot.security import enforce_command_access
 from panoptibot.visualization.plots import (
@@ -106,13 +107,13 @@ def register(
         if emoji_week:
             top_emoji = emoji_week[0]
             lines.append(
-                f"Top emoji this week: {top_emoji.get('emoji')} ({top_emoji.get('usage_count')})"
+                f"Top emoji this week: {format_emoji_label(top_emoji.get('emoji'))} ({top_emoji.get('usage_count')} messages)"
             )
         if trending:
             lines.append("Trending emojis:")
             for emoji_value, week_count, month_count, score in trending[:5]:
                 lines.append(
-                    f"- {emoji_value} week={int(week_count)} month={int(month_count)} trend={score:.2f}"
+                    f"- {format_emoji_label(emoji_value)} week={int(week_count)} msgs month={int(month_count)} msgs trend={score:.2f}"
                 )
         if emoji_per_user:
             lines.append("Emoji per user:")
@@ -120,7 +121,7 @@ def register(
                 user_id = str(row.get("user_id", ""))
                 entries = row.get("top_emojis", []) or []
                 summary = ", ".join(
-                    f"{entry.get('emoji')} ({entry.get('usage_count')})"
+                    f"{format_emoji_label(entry.get('emoji'))} ({entry.get('usage_count')} msgs)"
                     for entry in entries
                 )
                 lines.append(f"- <@{user_id}>: {summary}")

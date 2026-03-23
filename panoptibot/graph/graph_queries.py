@@ -15,18 +15,15 @@ OPTIONAL MATCH (reply:Message)-[:REPLIED_TO]->(m)
 OPTIONAL MATCH (:User)-[reacted:REACTED_TO]->(m)
 WHERE reacted.removed_at IS NULL
 WITH m, c, author, $user_id AS user_id, count(DISTINCT reacted) AS reaction_count, count(DISTINCT reply) AS reply_count
-CALL {
-  WITH author, user_id
+CALL (author, user_id) {
   OPTIONAL MATCH (viewer:User {id: user_id})-[rel:INTERACTED_WITH]->(author)
   RETURN coalesce(rel.weight, 0) AS interaction_frequency_between_users
 }
-CALL {
-  WITH author, user_id
+CALL (author, user_id) {
   OPTIONAL MATCH (viewer:User {id: user_id})-[:SENT]->(reply_message:Message)-[:REPLIED_TO]->(:Message)<-[:SENT]-(author)
   RETURN count(DISTINCT reply_message) AS prior_reply_count_between_users
 }
-CALL {
-  WITH author, user_id
+CALL (author, user_id) {
   OPTIONAL MATCH (viewer:User {id: user_id})-[reaction:REACTED_TO]->(:Message)<-[:SENT]-(author)
   WHERE reaction.removed_at IS NULL
   RETURN count(DISTINCT reaction) AS prior_reaction_count_between_users
@@ -72,7 +69,8 @@ EMOJI_COUNTS_QUERY = """
 MATCH (:User)-[:SENT]->(m:Message)
 WHERE m.created_at >= $cutoff AND coalesce(m.deleted, false) = false
 UNWIND coalesce(m.emoji_list, []) AS emoji
-RETURN emoji, count(*) AS usage_count
+WITH emoji, m.id AS message_id
+RETURN emoji, count(DISTINCT message_id) AS usage_count
 ORDER BY usage_count DESC
 LIMIT $limit
 """
@@ -114,7 +112,8 @@ EMOJI_PER_USER_QUERY = """
 MATCH (u:User)-[:SENT]->(m:Message)
 WHERE m.created_at >= $cutoff AND coalesce(m.deleted, false) = false
 UNWIND coalesce(m.emoji_list, []) AS emoji
-WITH u.id AS user_id, emoji, count(*) AS usage_count
+WITH u.id AS user_id, emoji, m.id AS message_id
+WITH user_id, emoji, count(DISTINCT message_id) AS usage_count
 ORDER BY user_id, usage_count DESC
 WITH user_id, collect({emoji: emoji, usage_count: usage_count}) AS emoji_usage
 RETURN user_id, emoji_usage[0..$per_user] AS top_emojis

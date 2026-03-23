@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 import io
+import math
 import tempfile
 from typing import Any, Mapping, Sequence, cast
 
@@ -15,6 +16,7 @@ import numpy as np
 from numpy.typing import NDArray
 from matplotlib.offsetbox import AnnotationBbox, OffsetImage
 from PIL import Image
+from panoptibot.analytics.emoji_stats import format_emoji_label
 
 
 def _as_int(value: object) -> int:
@@ -50,7 +52,7 @@ def plot_emoji_distribution(
     ordered = sorted(
         rows, key=lambda row: _as_int(row.get("usage_count")), reverse=True
     )
-    labels = [str(row.get("emoji", "")) for row in ordered] or ["none"]
+    labels = [format_emoji_label(row.get("emoji", "")) for row in ordered] or ["none"]
     values = [_as_int(row.get("usage_count")) for row in ordered] or [0]
     fig_height = max(4, min(12, 0.5 * len(labels) + 2))
     fig, ax = plt.subplots(figsize=(10, fig_height))
@@ -107,18 +109,49 @@ def plot_interaction_graph(
 ) -> Path:
     graph = nx.DiGraph()
     for edge in edges:
+        source_user = str(edge["source_user"])
+        target_user = str(edge["target_user"])
+        if source_user == target_user:
+            continue
         graph.add_edge(
-            str(edge["source_user"]),
-            str(edge["target_user"]),
-            weight=max(_as_int(edge.get("weight")), 1),
+            source_user, target_user, weight=max(_as_int(edge.get("weight")), 1)
         )
     if not graph.nodes:
         graph.add_node("no-data")
-    node_count = max(len(graph.nodes), 1)
-    pos = nx.spring_layout(graph, seed=42, k=1.1 / (node_count**0.5), iterations=100)
-    weights = [graph[u][v].get("weight", 1) for u, v in graph.edges] or [1]
+
+    components = [
+        sorted(component) for component in nx.weakly_connected_components(graph)
+    ]
+    components.sort(key=len, reverse=True)
+    component_count = max(len(components), 1)
+    center_ring_radius = 4.0 if component_count > 1 else 0.0
+    pos: dict[str, tuple[float, float]] = {}
+    for index, component_nodes in enumerate(components):
+        if component_count == 1:
+            center_x, center_y = 0.0, 0.0
+        else:
+            angle = (2 * math.pi * index) / component_count
+            center_x = center_ring_radius * math.cos(angle)
+            center_y = center_ring_radius * math.sin(angle)
+        local_radius = 0.9 + 0.22 * math.sqrt(max(len(component_nodes), 1))
+        if len(component_nodes) == 1:
+            pos[component_nodes[0]] = (center_x, center_y)
+            continue
+        local_layout = nx.circular_layout(
+            graph.subgraph(component_nodes).to_undirected()
+        )
+        for node in component_nodes:
+            node_pos = cast(NDArray[Any], local_layout[node])
+            pos[node] = (
+                center_x + float(node_pos[0]) * local_radius,
+                center_y + float(node_pos[1]) * local_radius,
+            )
+
+    edge_weights = [graph[u][v].get("weight", 1) for u, v in graph.edges] or [1]
+    max_edge_weight = max(edge_weights)
     fig, ax = plt.subplots(figsize=(10, 10))
     nx.draw_networkx_nodes(graph, pos, node_size=900, node_color="#8ecae6", ax=ax)
+    node_has_images = bool(node_images)
     if node_images:
         for node in graph.nodes:
             image_data = node_images.get(str(node))
@@ -151,15 +184,52 @@ def plot_interaction_graph(
             ax=ax,
         )
     if graph.edges:
-        nx.draw_networkx_edges(
-            graph,
-            pos,
-            width=weights,
-            arrowstyle="->",
-            arrowsize=14,
-            edge_color="#023047",
-            ax=ax,
-        )
+        for source_user, target_user in graph.edges:
+            weight = float(graph[source_user][target_user].get("weight", 1.0))
+            width = 1.0 + (3.0 * (weight / max_edge_weight))
+            if graph.has_edge(target_user, source_user):
+                curve = 0.25 if source_user < target_user else -0.25
+            else:
+                curve = 0.08
+            source_x, source_y = pos[source_user]
+            target_x, target_y = pos[target_user]
+            mid_x = (source_x + target_x) / 2.0
+            mid_y = (source_y + target_y) / 2.0
+            dx = target_x - source_x
+            dy = target_y - source_y
+            length = math.hypot(dx, dy) or 1.0
+            normal_x = -dy / length
+            normal_y = dx / length
+            label_x = mid_x + normal_x * (curve * 0.9)
+            label_y = mid_y + normal_y * (curve * 0.9)
+            nx.draw_networkx_edges(
+                graph,
+                pos,
+                edgelist=[(source_user, target_user)],
+                width=width,
+                arrowstyle="-|>",
+                arrowsize=24,
+                edge_color="#023047",
+                connectionstyle=f"arc3,rad={curve}",
+                min_source_margin=22 if node_has_images else 10,
+                min_target_margin=26 if node_has_images else 12,
+                ax=ax,
+            )
+            ax.text(
+                label_x,
+                label_y,
+                str(int(weight)),
+                fontsize=8,
+                color="#111827",
+                ha="center",
+                va="center",
+                bbox={
+                    "facecolor": "white",
+                    "edgecolor": "#9ca3af",
+                    "alpha": 0.85,
+                    "boxstyle": "round,pad=0.2",
+                },
+            )
     ax.set_title(title)
     ax.axis("off")
     fig.tight_layout()

@@ -17,6 +17,7 @@ Environment=MODELS_DIR=/opt/panoptibot/models
 ExecStart=/bin/sh -lc 'exec "$(command -v uv)" run panoptibot'
 Restart=on-failure
 RestartSec=5
+SuccessExitStatus=143
 RuntimeDirectory=panoptibot
 RuntimeDirectoryMode=0755
 UMask=0027
