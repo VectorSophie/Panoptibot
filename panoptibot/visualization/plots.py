@@ -119,6 +119,12 @@ def plot_interaction_graph(
     if not graph.nodes:
         graph.add_node("no-data")
 
+    influence = {node: 0.0 for node in graph.nodes}
+    for u, v, d in graph.edges(data=True):
+        w = float(d.get("weight", 1.0))
+        influence[u] += w
+        influence[v] += w
+
     components = [
         sorted(component) for component in nx.weakly_connected_components(graph)
     ]
@@ -126,6 +132,7 @@ def plot_interaction_graph(
     component_count = max(len(components), 1)
     center_ring_radius = 4.0 if component_count > 1 else 0.0
     pos: dict[str, tuple[float, float]] = {}
+
     for index, component_nodes in enumerate(components):
         if component_count == 1:
             center_x, center_y = 0.0, 0.0
@@ -133,14 +140,18 @@ def plot_interaction_graph(
             angle = (2 * math.pi * index) / component_count
             center_x = center_ring_radius * math.cos(angle)
             center_y = center_ring_radius * math.sin(angle)
-        local_radius = 0.9 + 0.22 * math.sqrt(max(len(component_nodes), 1))
-        if len(component_nodes) == 1:
-            pos[component_nodes[0]] = (center_x, center_y)
+
+        comp_top_node = max(component_nodes, key=lambda n: influence[n])
+        pos[comp_top_node] = (center_x, center_y)
+
+        others = [n for n in component_nodes if n != comp_top_node]
+        if not others:
             continue
-        local_layout = nx.circular_layout(
-            graph.subgraph(component_nodes).to_undirected()
-        )
-        for node in component_nodes:
+
+        # Hub-and-spoke layout: radial distance depends on component size
+        local_radius = 1.1 + 0.25 * math.sqrt(max(len(others), 1))
+        local_layout = nx.circular_layout(graph.subgraph(others).to_undirected())
+        for node in others:
             node_pos = cast(NDArray[Any], local_layout[node])
             pos[node] = (
                 center_x + float(node_pos[0]) * local_radius,
@@ -184,52 +195,170 @@ def plot_interaction_graph(
             ax=ax,
         )
     if graph.edges:
+        weights_list = [float(graph[u][v].get("weight", 1.0)) for u, v in graph.edges]
+        # Filter labels by percentile to prevent unreadable overlaps in dense graphs
+        weight_threshold = (
+            np.percentile(weights_list, 40) if len(weights_list) > 40 else 0
+        )
+
         for source_user, target_user in graph.edges:
             weight = float(graph[source_user][target_user].get("weight", 1.0))
             width = 1.0 + (3.0 * (weight / max_edge_weight))
-            if graph.has_edge(target_user, source_user):
-                curve = 0.25 if source_user < target_user else -0.25
+
+            is_mutual = graph.has_edge(target_user, source_user)
+            if is_mutual:
+                curve = 0.22 if source_user < target_user else -0.22
             else:
-                curve = 0.08
+                curve = 0.12
+
             source_x, source_y = pos[source_user]
             target_x, target_y = pos[target_user]
-            mid_x = (source_x + target_x) / 2.0
-            mid_y = (source_y + target_y) / 2.0
+
+            # Label positioning offset (30% along edge) to avoid hub congestion
+            lx = source_x + (target_x - source_x) * 0.3
+            ly = source_y + (target_y - source_y) * 0.3
+
             dx = target_x - source_x
             dy = target_y - source_y
             length = math.hypot(dx, dy) or 1.0
             normal_x = -dy / length
             normal_y = dx / length
-            label_x = mid_x + normal_x * (curve * 0.9)
-            label_y = mid_y + normal_y * (curve * 0.9)
+            label_x = lx + normal_x * (curve * 0.7)
+            label_y = ly + normal_y * (curve * 0.7)
+
             nx.draw_networkx_edges(
                 graph,
                 pos,
                 edgelist=[(source_user, target_user)],
                 width=width,
                 arrowstyle="-|>",
-                arrowsize=24,
+                arrowsize=20,
                 edge_color="#023047",
                 connectionstyle=f"arc3,rad={curve}",
-                min_source_margin=22 if node_has_images else 10,
-                min_target_margin=26 if node_has_images else 12,
+                min_source_margin=24 if node_has_images else 12,
+                min_target_margin=28 if node_has_images else 14,
                 ax=ax,
             )
-            ax.text(
-                label_x,
-                label_y,
-                str(int(weight)),
-                fontsize=8,
-                color="#111827",
-                ha="center",
-                va="center",
-                bbox={
-                    "facecolor": "white",
-                    "edgecolor": "#9ca3af",
-                    "alpha": 0.85,
-                    "boxstyle": "round,pad=0.2",
-                },
+
+            if weight >= weight_threshold:
+                ax.text(
+                    label_x,
+                    label_y,
+                    str(int(weight)),
+                    fontsize=7,
+                    color="#111827",
+                    ha="center",
+                    va="center",
+                    bbox={
+                        "facecolor": "white",
+                        "edgecolor": "#9ca3af",
+                        "alpha": 0.9,
+                        "boxstyle": "round,pad=0.15",
+                    },
+                )
+
+    edge_weights = [graph[u][v].get("weight", 1) for u, v in graph.edges] or [1]
+    max_edge_weight = max(edge_weights)
+    fig, ax = plt.subplots(figsize=(10, 10))
+    nx.draw_networkx_nodes(graph, pos, node_size=900, node_color="#8ecae6", ax=ax)
+    node_has_images = bool(node_images)
+    if node_images:
+        for node in graph.nodes:
+            image_data = node_images.get(str(node))
+            if not image_data:
+                continue
+            avatar_image = _to_image(image_data)
+            image_array = cast(NDArray[Any], np.asarray(avatar_image))
+            image_box = OffsetImage(image_array, zoom=0.55)
+            position = pos[node]
+            xy = (float(position[0]), float(position[1]))
+            annotation = AnnotationBbox(
+                image_box,
+                xy,
+                frameon=True,
+                bboxprops={"edgecolor": "#1f2937", "linewidth": 1.0},
             )
+            ax.add_artist(annotation)
+    else:
+        labels = (
+            {node: str(node) for node in graph.nodes}
+            if label_map is None
+            else {node: label_map.get(str(node), str(node)) for node in graph.nodes}
+        )
+        nx.draw_networkx_labels(
+            graph,
+            pos,
+            labels=labels,
+            font_size=8,
+            bbox={"facecolor": "white", "edgecolor": "#1f2937", "alpha": 0.6},
+            ax=ax,
+        )
+    if graph.edges:
+        # Only show labels for top weight edges if the graph is dense
+        weights_list = [float(graph[u][v].get("weight", 1.0)) for u, v in graph.edges]
+        weight_threshold = (
+            np.percentile(weights_list, 40) if len(weights_list) > 40 else 0
+        )
+
+        for source_user, target_user in graph.edges:
+            weight = float(graph[source_user][target_user].get("weight", 1.0))
+            width = 1.0 + (3.0 * (weight / max_edge_weight))
+
+            # Use distinct curvature for mutual vs single edges
+            is_mutual = graph.has_edge(target_user, source_user)
+            if is_mutual:
+                curve = 0.22 if source_user < target_user else -0.22
+            else:
+                curve = 0.12
+
+            source_x, source_y = pos[source_user]
+            target_x, target_y = pos[target_user]
+
+            # Position label at 30% along the edge to avoid central hub clutter
+            lx = source_x + (target_x - source_x) * 0.3
+            ly = source_y + (target_y - source_y) * 0.3
+
+            # Apply normal offset for curved edges
+            dx = target_x - source_x
+            dy = target_y - source_y
+            length = math.hypot(dx, dy) or 1.0
+            normal_x = -dy / length
+            normal_y = dx / length
+            label_x = lx + normal_x * (curve * 0.7)
+            label_y = ly + normal_y * (curve * 0.7)
+
+            nx.draw_networkx_edges(
+                graph,
+                pos,
+                edgelist=[(source_user, target_user)],
+                width=width,
+                arrowstyle="-|>",
+                arrowsize=20,
+                edge_color="#023047",
+                connectionstyle=f"arc3,rad={curve}",
+                min_source_margin=24 if node_has_images else 12,
+                min_target_margin=28 if node_has_images else 14,
+                ax=ax,
+            )
+
+            # Only draw weight label if significant or graph is sparse
+            if weight >= weight_threshold:
+                ax.text(
+                    label_x,
+                    label_y,
+                    str(int(weight)),
+                    fontsize=7,
+                    color="#111827",
+                    ha="center",
+                    va="center",
+                    bbox={
+                        "facecolor": "white",
+                        "edgecolor": "#9ca3af",
+                        "alpha": 0.9,
+                        "boxstyle": "round,pad=0.15",
+                    },
+                )
+
     ax.set_title(title)
     ax.axis("off")
     fig.tight_layout()
