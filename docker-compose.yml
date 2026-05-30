@@ -1,0 +1,36 @@
+services:
+  neo4j:
+    image: neo4j:5-community
+    restart: unless-stopped
+    environment:
+      NEO4J_AUTH: "${NEO4J_USER:-neo4j}/${NEO4J_PASSWORD:-replace-me}"
+    ports:
+      - "127.0.0.1:7474:7474"
+      - "127.0.0.1:7687:7687"
+    volumes:
+      - neo4j-data:/data
+      - neo4j-logs:/logs
+
+  panoptibot:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      - neo4j
+    env_file:
+      - .env
+    environment:
+      NEO4J_URI: "bolt://neo4j:7687"
+      PANOPTIBOT_HOME: "/data"
+      LOGS_DIR: "/data/logs"
+      MODELS_DIR: "/data/models"
+      COPYCAT_DIR: "/data/copycat"
+      LM_STUDIO_BASE_URL: "${LM_STUDIO_BASE_URL:-http://host.docker.internal:1234}"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - panoptibot-data:/data
+
+volumes:
+  neo4j-data:
+  neo4j-logs:
+  panoptibot-data:

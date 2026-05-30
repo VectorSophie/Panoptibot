@@ -22,6 +22,12 @@ FEATURE_NAMES = [
     "emoji_rarity_score",
     "sticker_rarity_score",
     "trending_emoji_score",
+    "mentioned_viewer",
+    "question_to_viewer",
+    "topic_burst_score",
+    "conversation_centrality",
+    "viewer_channel_affinity",
+    "author_bridge_score",
 ]
 
 

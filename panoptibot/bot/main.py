@@ -19,6 +19,9 @@ from panoptibot.commands import health as health_command
 from panoptibot.commands import influence as influence_command
 from panoptibot.commands import stats as stats_command
 from panoptibot.commands import summary as summary_command
+from panoptibot.commands import catchup as catchup_command
+from panoptibot.commands import copycat as copycat_command
+from panoptibot.commands import culture as culture_command
 from panoptibot.events.member_events import (
     handle_member_join,
     handle_member_remove,
@@ -35,6 +38,7 @@ from panoptibot.events.reaction_events import (
     handle_reaction_remove,
 )
 from panoptibot.graph.neo4j_client import Neo4jClient
+from panoptibot.copycat.store import CopycatStore
 from panoptibot.ml.recommender import MessageRecommender
 from panoptibot.ml.trainer import train_and_save_model
 
@@ -60,6 +64,7 @@ class PanoptibotClient(discord.Client):
                 window_seconds=settings.command_rate_limit_window,
             ),
             session_tracker=SessionTracker(idle_seconds=settings.session_idle_seconds),
+            copycat_store=CopycatStore(settings.copycat_dir),
         )
         self._periodic_task: asyncio.Task[None] | None = None
 
@@ -69,6 +74,9 @@ class PanoptibotClient(discord.Client):
         stats_command.register(self.tree, self.services)
         influence_command.register(self.tree, self.services)
         emoji_culture_command.register(self.tree, self.services)
+        copycat_command.register(self.tree, self.services)
+        catchup_command.register(self.tree, self.services)
+        culture_command.register(self.tree, self.services)
         graph_command.register(self.tree, self.services)
         health_command.register(self.tree, self.services)
         debug_command.register(self.tree, self.services)

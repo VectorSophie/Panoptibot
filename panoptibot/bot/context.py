@@ -6,6 +6,7 @@ from panoptibot.bot.config import Settings
 from panoptibot.bot.logger import JsonlLogger
 from panoptibot.bot.rate_limit import SlidingWindowRateLimiter
 from panoptibot.bot.session_tracker import SessionTracker
+from panoptibot.copycat.store import CopycatStore
 from panoptibot.graph.neo4j_client import Neo4jClient
 from panoptibot.ml.recommender import MessageRecommender
 
@@ -18,3 +19,4 @@ class ServiceContainer:
     recommender: MessageRecommender
     rate_limiter: SlidingWindowRateLimiter
     session_tracker: SessionTracker
+    copycat_store: CopycatStore

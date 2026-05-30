@@ -19,6 +19,7 @@ class Settings:
     logs_dir: Path
     models_dir: Path
     model_path: Path
+    copycat_dir: Path
     graph_name: str
     data_dir: Path
     log_retention_days: int
@@ -27,6 +28,14 @@ class Settings:
     summary_lookback_hours: int
     training_lookback_days: int
     session_idle_seconds: int
+    copycat_default_duration_minutes: int
+    copycat_cooldown_seconds: int
+    copycat_history_retention_days: int
+    lm_studio_base_url: str
+    lm_studio_model: str
+    lm_studio_timeout_seconds: float
+    lm_studio_max_tokens: int
+    lm_studio_temperature: float
 
 
 def _required(name: str) -> str:
@@ -70,6 +79,9 @@ def load_settings(
         if model_path_value.is_absolute()
         else (data_dir / model_path_value).resolve()
     )
+    copycat_dir = (
+        Path(os.getenv("COPYCAT_DIR", str(data_dir / "copycat"))).expanduser().resolve()
+    )
 
     settings = Settings(
         discord_token=_required("DISCORD_TOKEN")
@@ -92,6 +104,7 @@ def load_settings(
         logs_dir=logs_dir,
         models_dir=models_dir,
         model_path=model_path,
+        copycat_dir=copycat_dir,
         graph_name=os.getenv("GRAPH_NAME", "panoptibot"),
         data_dir=data_dir,
         log_retention_days=int(os.getenv("LOG_RETENTION_DAYS", "30")),
@@ -100,6 +113,18 @@ def load_settings(
         summary_lookback_hours=int(os.getenv("SUMMARY_LOOKBACK_HOURS", "24")),
         training_lookback_days=int(os.getenv("TRAINING_LOOKBACK_DAYS", "30")),
         session_idle_seconds=int(os.getenv("SESSION_IDLE_SECONDS", "3600")),
+        copycat_default_duration_minutes=int(
+            os.getenv("COPYCAT_DEFAULT_DURATION_MINUTES", "120")
+        ),
+        copycat_cooldown_seconds=int(os.getenv("COPYCAT_COOLDOWN_SECONDS", "90")),
+        copycat_history_retention_days=int(
+            os.getenv("COPYCAT_HISTORY_RETENTION_DAYS", "30")
+        ),
+        lm_studio_base_url=os.getenv("LM_STUDIO_BASE_URL", "http://127.0.0.1:1234"),
+        lm_studio_model=os.getenv("LM_STUDIO_MODEL", "local-model"),
+        lm_studio_timeout_seconds=float(os.getenv("LM_STUDIO_TIMEOUT_SECONDS", "8")),
+        lm_studio_max_tokens=int(os.getenv("LM_STUDIO_MAX_TOKENS", "80")),
+        lm_studio_temperature=float(os.getenv("LM_STUDIO_TEMPERATURE", "0.4")),
     )
 
     for directory in (
@@ -107,6 +132,7 @@ def load_settings(
         settings.logs_dir / "errors",
         settings.logs_dir / "ml_feedback",
         settings.models_dir,
+        settings.copycat_dir,
     ):
         directory.mkdir(parents=True, exist_ok=True)
 

@@ -20,6 +20,7 @@ panoptibot = "panoptibot.bot.main:run"
 panoptibot-train = "scripts.train_model:main"
 panoptibot-cleanup = "scripts.cleanup_logs:main"
 panoptibot-init-db = "scripts.init_db:main"
+panoptibot-doctor = "scripts.doctor:main"
 
 [build-system]
 requires = ["hatchling>=1.25.0"]

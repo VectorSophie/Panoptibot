@@ -104,6 +104,7 @@ class MessageRecommender:
             sum(len(row.get("mention_ids", [])) for row in all_candidates), 1
         )
         mention_boost = 1.0 if str(user_id) in mentioned_user_ids else 0.0
+        content_length = float(candidate.get("message_length", 0))
         emoji_count = int(candidate.get("emoji_count", 0) or 0)
         interaction_frequency = float(
             candidate.get("interaction_frequency_between_users", 0.0) or 0.0
@@ -115,7 +116,7 @@ class MessageRecommender:
             candidate.get("prior_reaction_count_between_users", 0.0) or 0.0
         )
         return {
-            "message_length": float(candidate.get("message_length", 0)),
+            "message_length": content_length,
             "reaction_count": float(candidate.get("reaction_count", 0)),
             "reply_count": float(candidate.get("reply_count", 0)),
             "emoji_count": float(emoji_count),
@@ -138,4 +139,17 @@ class MessageRecommender:
                 1.0 if candidate.get("sticker_present") else 0.0
             ),
             "trending_emoji_score": float(emoji_count + mention_boost) / total_mentions,
+            "mentioned_viewer": mention_boost,
+            "question_to_viewer": float(
+                mention_boost > 0 and candidate.get("reply_count", 0) > 0
+            ),
+            "topic_burst_score": float(
+                candidate.get("reaction_count", 0) >= 3
+                or candidate.get("reply_count", 0) >= 2
+            ),
+            "conversation_centrality": float(candidate.get("reply_count", 0)),
+            "viewer_channel_affinity": interaction_frequency,
+            "author_bridge_score": float(
+                prior_reply_count + prior_reaction_count + (content_length > 80)
+            ),
         }

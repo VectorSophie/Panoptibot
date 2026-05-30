@@ -79,27 +79,53 @@ The trained model is stored at `models/panoptibot_ranker.cbm` by default.
 
 For long-running deployments, set `PANOPTIBOT_HOME=/opt/panoptibot` so logs and models are written to stable writable directories instead of depending on the import location.
 
+## Doctor Check
+
+Run a local configuration and filesystem guardrail check:
+
+```bash
+uv run panoptibot-doctor
+```
+
+This verifies that log, model, and Copycat data directories are writable before the bot starts watching Discord events.
+
 ## Cleanup Old Logs
 
 ```bash
 uv run panoptibot-cleanup
 ```
 
-This removes JSONL logs older than 30 days by default.
+This removes JSONL logs older than 30 days by default and prunes opted-in Copycat history records according to each user's retention setting.
+
+## Local Docker Deployment
+
+For a local Linux Mint host, copy `.env.example` to `.env`, fill in the Discord and Neo4j secrets, then run:
+
+```bash
+docker compose up -d --build
+docker compose exec panoptibot uv run panoptibot-doctor
+docker compose exec panoptibot uv run panoptibot-init-db
+```
+
+The compose stack runs Neo4j and Panoptibot with durable volumes for logs, models, and Copycat data. If LM Studio is running on the host machine with its OpenAI-compatible server enabled, keep `LM_STUDIO_BASE_URL=http://host.docker.internal:1234`.
 
 ## Slash Commands
 
 - `/summary` - ranked catch-up summary for missed messages and threads of interest
+- `/catchup me` - social bullet-point digest of what people said, planned, asked, or offered while you were away
+- `/copycat on|off|status` - opt-in away proxy that replies as Panoptibot when you are mentioned in allowlisted channels
 - `/stats` - activity stats, emoji culture distribution, and top users
 - `/influence` - PageRank, centrality, and reply/reaction influence (monthly)
 - `/emoji_culture` - emoji frequency, reaction network, trending emojis, emoji per user
 - `/graph` - interaction graph PNG
 - `/debug` - admin-only internal metrics
 
-All slash commands are restricted to:
+Analytics/admin slash commands are restricted to:
 
 - users with Discord `administrator` permission
 - the configured `ADMIN_CHANNEL_ID`
+
+Copycat and catch-up commands are self-service member commands with rate limiting. Copycat always posts as Panoptibot with visible away-proxy attribution; it never logs in as, renames itself as, or secretly impersonates a user.
 
 ## Project Layout
 

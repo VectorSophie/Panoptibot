@@ -336,6 +336,14 @@ def _build_row(
         "emoji_rarity_score": round(emoji_rarity, 6),
         "sticker_rarity_score": round(sticker_rarity, 6),
         "trending_emoji_score": trending_emoji_score,
+        "mentioned_viewer": float(user_id in [str(item) for item in message.get("mention_ids", [])]),
+        "question_to_viewer": float("?" in str(message.get("content", ""))),
+        "topic_burst_score": float(len(recent_messages) >= 5),
+        "conversation_centrality": float(message_reply_counts[str(message["message_id"])]),
+        "viewer_channel_affinity": float(interactions_between_users[pair]),
+        "author_bridge_score": float(
+            replies_between_users[pair] + reactions_between_users[pair]
+        ),
     }
     return FeatureRow(
         group_id=session_id,
