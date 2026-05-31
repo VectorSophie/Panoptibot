@@ -108,6 +108,45 @@ ORDER BY reaction_count DESC
 LIMIT $limit
 """
 
+BONDS_INTERACTION_QUERY = """
+MATCH (src:User)-[rel:INTERACTED_WITH]->(dst:User)
+WHERE rel.last_seen_at >= $cutoff
+RETURN src.id AS source_user,
+       dst.id AS target_user,
+       rel.weight AS weight,
+       rel.first_seen_at AS first_seen_at
+ORDER BY weight DESC
+LIMIT $limit
+"""
+
+TONE_STATS_QUERY = """
+MATCH (u:User)-[:SENT]->(m:Message)
+WHERE m.created_at >= $cutoff
+  AND coalesce(m.deleted, false) = false
+  AND m.caps_ratio IS NOT NULL
+RETURN avg(m.caps_ratio) AS avg_caps_ratio,
+       avg(m.punctuation_density) AS avg_punctuation_density,
+       count(m) AS message_count
+"""
+
+ARCHETYPE_DISTRIBUTION_QUERY = """
+MATCH (u:User)-[:SENT]->(m:Message)
+WHERE m.created_at >= $cutoff AND coalesce(m.deleted, false) = false
+RETURN m.archetype AS archetype, count(m) AS count
+ORDER BY count DESC
+"""
+
+USER_ARCHETYPES_QUERY = """
+MATCH (u:User)-[:SENT]->(m:Message)
+WHERE m.created_at >= $cutoff
+  AND coalesce(m.deleted, false) = false
+  AND u.id IN $user_ids
+RETURN u.id AS user_id,
+       m.archetype AS archetype,
+       count(m) AS count
+ORDER BY user_id, count DESC
+"""
+
 EMOJI_PER_USER_QUERY = """
 MATCH (u:User)-[:SENT]->(m:Message)
 WHERE m.created_at >= $cutoff AND coalesce(m.deleted, false) = false

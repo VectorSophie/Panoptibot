@@ -67,6 +67,16 @@ def register(
                 )
             )
         scored.sort(key=lambda item: item[1], reverse=True)
+        top_user_ids = [uid for uid, *_ in scored[:5]]
+        archetype_rows = await services.graph.fetch_user_archetypes(lookback_days, top_user_ids)
+
+        archetype_map: dict[str, list[tuple[str, int]]] = {}
+        for row in archetype_rows:
+            uid = str(row.get("user_id", ""))
+            arc = str(row.get("archetype") or "unknown")
+            cnt = int(row.get("count", 0))
+            archetype_map.setdefault(uid, []).append((arc, cnt))
+
         lines = ["Top influencers this month:"]
         for index, (user_id, score, pr, deg, replies, reactions) in enumerate(
             scored[:5], start=1
@@ -84,4 +94,12 @@ def register(
                     ]
                 )
             )
+            user_arcs = archetype_map.get(user_id, [])
+            if user_arcs:
+                total_arc = sum(c for _, c in user_arcs) or 1
+                arc_summary = ", ".join(
+                    f"{a.replace('_', ' ')} {round(100 * c / total_arc)}%"
+                    for a, c in user_arcs[:3]
+                )
+                lines.append(f"   → primarily: {arc_summary}")
         await interaction.followup.send("\n".join(lines), ephemeral=True)

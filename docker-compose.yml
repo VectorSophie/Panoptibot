@@ -24,6 +24,7 @@ services:
       LOGS_DIR: "/data/logs"
       MODELS_DIR: "/data/models"
       COPYCAT_DIR: "/data/copycat"
+      BONDS_DIR: "/data/bonds"
       LM_STUDIO_BASE_URL: "${LM_STUDIO_BASE_URL:-http://host.docker.internal:1234}"
     extra_hosts:
       - "host.docker.internal:host-gateway"

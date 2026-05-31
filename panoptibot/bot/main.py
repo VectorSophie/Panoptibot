@@ -19,6 +19,7 @@ from panoptibot.commands import health as health_command
 from panoptibot.commands import influence as influence_command
 from panoptibot.commands import stats as stats_command
 from panoptibot.commands import summary as summary_command
+from panoptibot.commands import bonds as bonds_command
 from panoptibot.commands import catchup as catchup_command
 from panoptibot.commands import copycat as copycat_command
 from panoptibot.commands import culture as culture_command
@@ -41,6 +42,7 @@ from panoptibot.graph.neo4j_client import Neo4jClient
 from panoptibot.copycat.store import CopycatStore
 from panoptibot.ml.recommender import MessageRecommender
 from panoptibot.ml.trainer import train_and_save_model
+from panoptibot.text.phrase_logger import PhraseLogger
 
 
 class PanoptibotClient(discord.Client):
@@ -65,6 +67,7 @@ class PanoptibotClient(discord.Client):
             ),
             session_tracker=SessionTracker(idle_seconds=settings.session_idle_seconds),
             copycat_store=CopycatStore(settings.copycat_dir),
+            phrase_logger=PhraseLogger(settings.phrases_dir),
         )
         self._periodic_task: asyncio.Task[None] | None = None
 
@@ -77,6 +80,7 @@ class PanoptibotClient(discord.Client):
         copycat_command.register(self.tree, self.services)
         catchup_command.register(self.tree, self.services)
         culture_command.register(self.tree, self.services)
+        bonds_command.register(self.tree, self.services)
         graph_command.register(self.tree, self.services)
         health_command.register(self.tree, self.services)
         debug_command.register(self.tree, self.services)

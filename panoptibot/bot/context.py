@@ -9,6 +9,7 @@ from panoptibot.bot.session_tracker import SessionTracker
 from panoptibot.copycat.store import CopycatStore
 from panoptibot.graph.neo4j_client import Neo4jClient
 from panoptibot.ml.recommender import MessageRecommender
+from panoptibot.text.phrase_logger import PhraseLogger
 
 
 @dataclass(slots=True)
@@ -20,3 +21,4 @@ class ServiceContainer:
     rate_limiter: SlidingWindowRateLimiter
     session_tracker: SessionTracker
     copycat_store: CopycatStore
+    phrase_logger: PhraseLogger

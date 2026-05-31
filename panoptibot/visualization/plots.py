@@ -366,3 +366,117 @@ def plot_interaction_graph(
     fig.savefig(path, dpi=180)
     plt.close(fig)
     return path
+
+
+_BOND_LABEL_COLORS: dict[str, str] = {
+    "art mutual": "#52b788",
+    "hype partners": "#52b788",
+    "close allies": "#52b788",
+    "co-conspirators": "#52b788",
+    "theory partners": "#52b788",
+    "lore debate duo": "#f4a261",
+    "debate duo": "#f4a261",
+    "one-sided appreciation": "#90e0ef",
+    "one-sided": "#90e0ef",
+    "warm but drifting": "#adb5bd",
+    "cordial lurkers": "#adb5bd",
+    "cordial": "#adb5bd",
+    "quiet fans": "#adb5bd",
+}
+
+
+def _bond_edge_color(label: str) -> str:
+    normalized = label.lower()
+    for key, color in _BOND_LABEL_COLORS.items():
+        if key in normalized:
+            return color
+    if any(w in normalized for w in ("mutual", "close", "hype", "duo", "partner", "allies")):
+        return "#52b788"
+    if any(w in normalized for w in ("one-sided", "sided")):
+        return "#90e0ef"
+    if any(w in normalized for w in ("drifting", "cordial", "quiet", "lurk")):
+        return "#adb5bd"
+    return "#dee2e6"
+
+
+def plot_bonds_graph(
+    pairs: list[dict[str, Any]],
+    display_names: dict[str, str],
+    pair_labels: dict[tuple[str, str], str],
+) -> Path:
+    """pairs entries: user_a, user_b, weight_a_to_b, weight_b_to_a"""
+    graph = nx.DiGraph()
+    for pair in pairs:
+        a, b = str(pair["user_a"]), str(pair["user_b"])
+        if pair.get("weight_a_to_b", 0) > 0:
+            graph.add_edge(a, b, weight=float(pair["weight_a_to_b"]))
+        if pair.get("weight_b_to_a", 0) > 0:
+            graph.add_edge(b, a, weight=float(pair["weight_b_to_a"]))
+
+    if not graph.nodes:
+        graph.add_node("no-data")
+
+    centrality: dict[str, float] = {node: 0.0 for node in graph.nodes}
+    for u, v, d in graph.edges(data=True):
+        w = float(d.get("weight", 1.0))
+        centrality[u] += w
+        centrality[v] += w
+
+    max_centrality = max(centrality.values()) or 1.0
+    node_sizes = [400 + 1200 * (centrality.get(n, 0.0) / max_centrality) for n in graph.nodes]
+    node_labels = {n: display_names.get(str(n), str(n)) for n in graph.nodes}
+
+    pos = nx.spring_layout(graph, k=2.5, seed=42)
+    max_weight = max((float(d.get("weight", 1)) for _, _, d in graph.edges(data=True)), default=1.0)
+
+    fig, ax = plt.subplots(figsize=(10, 10))
+    nx.draw_networkx_nodes(graph, pos, node_size=node_sizes, node_color="#8ecae6", ax=ax)
+    nx.draw_networkx_labels(
+        graph, pos, labels=node_labels, font_size=8,
+        bbox={"facecolor": "white", "edgecolor": "#1f2937", "alpha": 0.75},
+        ax=ax,
+    )
+
+    drawn_pair_labels: set[frozenset[str]] = set()
+    for a, b in graph.edges:
+        weight = float(graph[a][b].get("weight", 1.0))
+        width = 1.0 + 3.0 * (weight / max_weight)
+        is_mutual = graph.has_edge(b, a)
+        curve = (0.25 if a < b else -0.25) if is_mutual else 0.12
+
+        label = pair_labels.get((a, b)) or pair_labels.get((b, a)) or "unknown"
+        edge_color = _bond_edge_color(label)
+
+        nx.draw_networkx_edges(
+            graph, pos,
+            edgelist=[(a, b)],
+            width=width,
+            arrowstyle="-|>",
+            arrowsize=18,
+            edge_color=edge_color,
+            connectionstyle=f"arc3,rad={curve}",
+            min_source_margin=18,
+            min_target_margin=22,
+            ax=ax,
+        )
+
+        pair_key = frozenset({a, b})
+        if pair_key not in drawn_pair_labels:
+            drawn_pair_labels.add(pair_key)
+            src_x, src_y = pos[a]
+            tgt_x, tgt_y = pos[b]
+            mid_x = (src_x + tgt_x) / 2
+            mid_y = (src_y + tgt_y) / 2
+            ax.text(
+                mid_x, mid_y, label,
+                fontsize=6, color="#111827", ha="center", va="center",
+                bbox={"facecolor": "white", "edgecolor": edge_color, "alpha": 0.9, "boxstyle": "round,pad=0.2"},
+            )
+
+    ax.set_title("Bond Graph", fontsize=14)
+    ax.axis("off")
+    fig.tight_layout()
+    path = _temp_png_path("panoptibot-bonds-")
+    fig.savefig(path, dpi=180)
+    plt.close(fig)
+    return path

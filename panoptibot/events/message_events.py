@@ -12,6 +12,7 @@ from panoptibot.copycat.runtime import (
     generate_copycat_text,
 )
 from panoptibot.graph.graph_builder import build_message_record
+from panoptibot.text.extractor import extract_terms
 
 
 async def handle_message_create(
@@ -44,6 +45,14 @@ async def handle_message_create(
         session_id = f"{message.author.id}:{int(now.timestamp())}"
     payload = build_message_record(message, session_id)
     services.logger.event("message_create", payload)
+    terms = extract_terms(message.content or "")
+    services.phrase_logger.log(
+        user_id=str(message.author.id),
+        channel_id=str(message.channel.id),
+        message_id=str(message.id),
+        terms=terms,
+        timestamp=str(payload["timestamp"]),
+    )
     services.copycat_store.record_history_message(
         user_id=str(message.author.id),
         channel_id=str(message.channel.id),

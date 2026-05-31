@@ -5,6 +5,8 @@ import re
 
 import discord
 
+from panoptibot.text.extractor import caps_ratio, classify_archetype, punctuation_density
+
 
 CUSTOM_EMOJI_PATTERN = re.compile(r"<a?:[A-Za-z0-9_]+:\d+>")
 UNICODE_EMOJI_PATTERN = re.compile(r"[\U0001F300-\U0001FAFF\u2600-\u27BF]")
@@ -39,21 +41,26 @@ def mention_ids(message: discord.Message) -> list[int]:
 def build_message_record(
     message: discord.Message, session_id: str
 ) -> dict[str, object]:
+    content = message.content or ""
+    has_attachment = bool(message.attachments)
     return {
         "timestamp": message.created_at.replace(tzinfo=UTC).isoformat(),
         "user_id": str(message.author.id),
         "channel_id": str(message.channel.id),
         "message_id": str(message.id),
-        "content_length": len(message.content or ""),
+        "content_length": len(content),
         "emoji_list": extract_emojis(message),
         "sticker_list": extract_stickers(message),
         "attachment_metadata": attachment_metadata(message),
-        "attachment_present": bool(message.attachments),
+        "attachment_present": has_attachment,
         "mention_ids": mention_ids(message),
         "reply_to_message_id": str(message.reference.message_id)
         if message.reference and message.reference.message_id
         else None,
         "session_id": session_id,
+        "archetype": classify_archetype(content, has_attachment),
+        "caps_ratio": caps_ratio(content),
+        "punctuation_density": punctuation_density(content),
     }
 
 

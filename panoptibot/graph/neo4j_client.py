@@ -59,6 +59,9 @@ class Neo4jClient:
                     m.attachment_metadata = $attachment_metadata,
                     m.attachment_present = $attachment_present,
                     m.mention_ids = $mention_ids,
+                    m.archetype = $archetype,
+                    m.caps_ratio = $caps_ratio,
+                    m.punctuation_density = $punctuation_density,
                     m.deleted = coalesce(m.deleted, false),
                     m.updated_at = $timestamp
                 MERGE (u)-[:SENT]->(m)
@@ -263,6 +266,41 @@ class Neo4jClient:
             per_user=per_user,
         )
 
+    async def fetch_bonds_edges(
+        self, lookback_days: int, limit: int = 500
+    ) -> list[dict[str, Any]]:
+        return await self._execute_read(
+            graph_queries.BONDS_INTERACTION_QUERY,
+            cutoff=(datetime.now(UTC) - timedelta(days=lookback_days)).isoformat(),
+            limit=limit,
+        )
+
+    async def fetch_tone_stats(self, lookback_days: int) -> dict[str, Any]:
+        rows = await self._execute_read(
+            graph_queries.TONE_STATS_QUERY,
+            cutoff=(datetime.now(UTC) - timedelta(days=lookback_days)).isoformat(),
+        )
+        if rows and rows[0].get("message_count", 0):
+            return rows[0]
+        return {"avg_caps_ratio": None, "avg_punctuation_density": None, "message_count": 0}
+
+    async def fetch_archetype_distribution(
+        self, lookback_days: int
+    ) -> list[dict[str, Any]]:
+        return await self._execute_read(
+            graph_queries.ARCHETYPE_DISTRIBUTION_QUERY,
+            cutoff=(datetime.now(UTC) - timedelta(days=lookback_days)).isoformat(),
+        )
+
+    async def fetch_user_archetypes(
+        self, lookback_days: int, user_ids: list[str]
+    ) -> list[dict[str, Any]]:
+        return await self._execute_read(
+            graph_queries.USER_ARCHETYPES_QUERY,
+            cutoff=(datetime.now(UTC) - timedelta(days=lookback_days)).isoformat(),
+            user_ids=user_ids,
+        )
+
     async def check_connection(self) -> bool:
         try:
             rows = await self._execute_read("RETURN 1 AS ok")
@@ -335,7 +373,8 @@ class Neo4jClient:
             FOREACH (_ IN CASE WHEN total_weight > 0 THEN [1] ELSE [] END |
               MERGE (source)-[rel:INTERACTED_WITH]->(target)
               SET rel.weight = total_weight,
-                  rel.last_seen_at = $timestamp
+                  rel.last_seen_at = $timestamp,
+                  rel.first_seen_at = coalesce(rel.first_seen_at, $timestamp)
             )
             """,
             source_user_id=source_user_id,

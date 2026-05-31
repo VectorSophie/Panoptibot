@@ -28,6 +28,9 @@ class Settings:
     summary_lookback_hours: int
     training_lookback_days: int
     session_idle_seconds: int
+    phrases_dir: Path
+    bonds_dir: Path
+    bonds_min_weight: int
     copycat_default_duration_minutes: int
     copycat_cooldown_seconds: int
     copycat_history_retention_days: int
@@ -82,6 +85,9 @@ def load_settings(
     copycat_dir = (
         Path(os.getenv("COPYCAT_DIR", str(data_dir / "copycat"))).expanduser().resolve()
     )
+    bonds_dir = (
+        Path(os.getenv("BONDS_DIR", str(data_dir / "bonds"))).expanduser().resolve()
+    )
 
     settings = Settings(
         discord_token=_required("DISCORD_TOKEN")
@@ -105,6 +111,9 @@ def load_settings(
         models_dir=models_dir,
         model_path=model_path,
         copycat_dir=copycat_dir,
+        phrases_dir=logs_dir / "phrases",
+        bonds_dir=bonds_dir,
+        bonds_min_weight=int(os.getenv("BONDS_MIN_WEIGHT", "5")),
         graph_name=os.getenv("GRAPH_NAME", "panoptibot"),
         data_dir=data_dir,
         log_retention_days=int(os.getenv("LOG_RETENTION_DAYS", "30")),
@@ -131,8 +140,10 @@ def load_settings(
         settings.logs_dir / "events",
         settings.logs_dir / "errors",
         settings.logs_dir / "ml_feedback",
+        settings.phrases_dir,
         settings.models_dir,
         settings.copycat_dir,
+        settings.bonds_dir / "audit",
     ):
         directory.mkdir(parents=True, exist_ok=True)
 
