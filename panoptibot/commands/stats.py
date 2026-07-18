@@ -22,21 +22,22 @@ def register(
     @tree.command(
         name="stats", description="Show Panoptibot activity and culture statistics."
     )
-    async def stats(interaction: discord.Interaction) -> None:
+    @app_commands.describe(days="Number of days to analyze (default: 30)")
+    async def stats(interaction: discord.Interaction, days: int = 30) -> None:
         if not await enforce_command_access(
             interaction, services.settings, services.rate_limiter
         ):
             return
         await interaction.response.defer(ephemeral=True, thinking=True)
-        stats_row = await services.graph.fetch_activity_stats(
-            services.settings.training_lookback_days
-        )
-        top_users = await services.graph.fetch_top_users(
-            services.settings.training_lookback_days
-        )
-        emoji_rows = await services.graph.fetch_emoji_counts(
-            services.settings.training_lookback_days
-        )
+        # Validate days parameter
+        if days < 1 or days > 90:
+            await interaction.followup.send(
+                "Days must be between 1 and 90.", ephemeral=True
+            )
+            return
+        stats_row = await services.graph.fetch_activity_stats(days)
+        top_users = await services.graph.fetch_top_users(days)
+        emoji_rows = await services.graph.fetch_emoji_counts(days)
         emoji_images: list[Image.Image | None] = []
         if interaction.guild:
             emoji_map = {emoji.id: emoji for emoji in interaction.guild.emojis}

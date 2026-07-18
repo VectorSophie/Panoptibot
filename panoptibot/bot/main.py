@@ -16,6 +16,7 @@ from panoptibot.commands import debug as debug_command
 from panoptibot.commands import emoji_culture as emoji_culture_command
 from panoptibot.commands import graph as graph_command
 from panoptibot.commands import health as health_command
+from panoptibot.commands import help as help_command
 from panoptibot.commands import influence as influence_command
 from panoptibot.commands import stats as stats_command
 from panoptibot.commands import summary as summary_command
@@ -83,7 +84,9 @@ class PanoptibotClient(discord.Client):
         bonds_command.register(self.tree, self.services)
         graph_command.register(self.tree, self.services)
         health_command.register(self.tree, self.services)
+        help_command.register(self.tree, self.services)
         debug_command.register(self.tree, self.services)
+        self._register_aliases()
         if self.services.settings.guild_id is not None:
             guild = discord.Object(id=self.services.settings.guild_id)
             existing_commands = list(self.tree.get_commands())
@@ -96,6 +99,30 @@ class PanoptibotClient(discord.Client):
         else:
             await self.tree.sync()
         self._periodic_task = asyncio.create_task(self._run_periodic_jobs())
+
+    def _register_aliases(self) -> None:
+        """Register command aliases for convenience."""
+        from discord import app_commands
+
+        # /s -> /summary
+        summary_cmd = self.tree.get_command("summary")
+        if summary_cmd:
+            s_cmd = app_commands.Command(
+                name="s",
+                description="Alias for /summary - Ranked catch-up messages",
+                callback=summary_cmd.callback,
+            )
+            self.tree.add_command(s_cmd)
+
+        # /i -> /influence
+        influence_cmd = self.tree.get_command("influence")
+        if influence_cmd:
+            i_cmd = app_commands.Command(
+                name="i",
+                description="Alias for /influence - User influence rankings",
+                callback=influence_cmd.callback,
+            )
+            self.tree.add_command(i_cmd)
 
     async def close(self) -> None:
         if self._periodic_task is not None:

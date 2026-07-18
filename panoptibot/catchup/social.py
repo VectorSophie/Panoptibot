@@ -14,13 +14,16 @@ class SocialFact:
 
 
 def render_catchup_bullets(facts: list[SocialFact], viewer_name: str) -> list[str]:
-    lines = [f"Catch-up for @{viewer_name}"]
+    lines = [f"**Catch-up for @{viewer_name}**\n"]
     for fact in facts:
         sentence = _fact_sentence(fact)
         if fact.confidence < 0.6:
             sentence = f"Looks like {sentence}"
-        source = fact.evidence_urls[0] if fact.evidence_urls else "no source"
-        lines.append(f"- {sentence}. Source: {source}")
+
+        # Format: • User said something in #channel - [message link]
+        channel_part = f" in {fact.channel_name}" if fact.channel_name else ""
+        source = fact.evidence_urls[0] if fact.evidence_urls else ""
+        lines.append(f"• {sentence}{channel_part} - {source}")
     return lines
 
 

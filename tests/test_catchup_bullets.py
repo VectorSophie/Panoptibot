@@ -18,8 +18,8 @@ class CatchupBulletsTest(unittest.TestCase):
         self.assertEqual(
             bullets,
             [
-                "Catch-up for @Jack",
-                "- Kromer said he would hang out with Bitzy later. Source: https://discord.com/channels/1/2/3",
+                "**Catch-up for @Jack**\n",
+                "• Kromer said he would hang out with Bitzy later - https://discord.com/channels/1/2/3",
             ],
         )
 
@@ -35,7 +35,7 @@ class CatchupBulletsTest(unittest.TestCase):
         bullets = render_catchup_bullets([fact], viewer_name="Jack")
 
         self.assertIn(
-            "- Looks like Jack said he can VC right now. Source: https://discord.com/channels/1/2/4",
+            "• Looks like Jack said he can VC right now - https://discord.com/channels/1/2/4",
             bullets,
         )
 

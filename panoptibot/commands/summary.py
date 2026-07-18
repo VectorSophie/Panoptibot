@@ -23,16 +23,23 @@ def register(
     @tree.command(
         name="summary", description="Rank important missed messages for catch-up."
     )
-    async def summary(interaction: discord.Interaction) -> None:
+    @app_commands.describe(days="Number of days to look back (default: 1)")
+    async def summary(interaction: discord.Interaction, days: int = 1) -> None:
         if not await enforce_command_access(
             interaction, services.settings, services.rate_limiter
         ):
             return
         try:
             await interaction.response.defer(ephemeral=True, thinking=True)
+            # Validate days parameter
+            if days < 1 or days > 30:
+                await interaction.followup.send(
+                    "Days must be between 1 and 30.", ephemeral=True
+                )
+                return
             candidates = await services.graph.fetch_summary_candidates(
                 user_id=interaction.user.id,
-                lookback_hours=services.settings.summary_lookback_hours,
+                lookback_hours=days * 24,
                 limit=40,
             )
             ranked = services.recommender.rank(interaction.user.id, candidates)[:5]

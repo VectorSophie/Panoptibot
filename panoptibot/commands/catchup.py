@@ -15,19 +15,49 @@ def register(
     group = app_commands.Group(name="catchup", description="Catch up on missed context.")
 
     @group.command(name="me", description="Show social bullet points from recent activity.")
-    async def catchup_me(interaction: discord.Interaction) -> None:
+    @app_commands.describe(days="Number of days to look back (default: 1)")
+    async def catchup_me(interaction: discord.Interaction, days: int = 1) -> None:
         if not await enforce_user_command_access(interaction, services.rate_limiter):
             return
         await interaction.response.defer(ephemeral=True, thinking=True)
+        # Validate days parameter
+        if days < 1 or days > 30:
+            await interaction.followup.send(
+                "Days must be between 1 and 30.", ephemeral=True
+            )
+            return
         candidates = await services.graph.fetch_summary_candidates(
             user_id=interaction.user.id,
-            lookback_hours=services.settings.summary_lookback_hours,
+            lookback_hours=days * 24,
             limit=20,
         )
         ranked = services.recommender.rank(interaction.user.id, candidates)[:6]
-        facts = [
-            SocialFact(
-                subject_names=(f"@{item.author_id}",),
+
+        # Resolve user IDs to display names and channel IDs to channel names
+        guild = interaction.guild
+        facts = []
+        for item in ranked:
+            # Try to get the actual Discord user's display name
+            author_name = f"@{item.author_id}"
+            if guild:
+                try:
+                    member = await guild.fetch_member(int(item.author_id))
+                    author_name = f"@{member.display_name}"
+                except (discord.NotFound, discord.HTTPException, ValueError):
+                    pass
+
+            # Try to get the actual channel name
+            channel_name = f"#{item.channel_id}"
+            if guild:
+                try:
+                    channel = guild.get_channel(int(item.channel_id))
+                    if channel and hasattr(channel, 'name'):
+                        channel_name = f"#{channel.name}"
+                except (ValueError, AttributeError):
+                    pass
+
+            facts.append(SocialFact(
+                subject_names=(author_name,),
                 related_names=(),
                 action="said_something",
                 evidence_urls=(
@@ -36,10 +66,9 @@ def register(
                     ),
                 ),
                 confidence=0.8,
-                channel_name=item.channel_id,
-            )
-            for item in ranked
-        ]
+                channel_name=channel_name,
+            ))
+
         if not facts:
             await interaction.followup.send(
                 "No recent catch-up bullets were found.", ephemeral=True

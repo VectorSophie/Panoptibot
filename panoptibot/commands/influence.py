@@ -12,14 +12,20 @@ def register(
     tree: app_commands.CommandTree[discord.Client], services: ServiceContainer
 ) -> None:
     @tree.command(name="influence", description="Find top influencers this month.")
-    async def influence(interaction: discord.Interaction) -> None:
+    @app_commands.describe(days="Number of days to analyze (default: 30)")
+    async def influence(interaction: discord.Interaction, days: int = 30) -> None:
         if not await enforce_command_access(
             interaction, services.settings, services.rate_limiter
         ):
             return
         await interaction.response.defer(ephemeral=True, thinking=True)
-        lookback_days = 30
-        edges = await services.graph.fetch_interaction_edges(lookback_days)
+        # Validate days parameter
+        if days < 1 or days > 90:
+            await interaction.followup.send(
+                "Days must be between 1 and 90.", ephemeral=True
+            )
+            return
+        edges = await services.graph.fetch_interaction_edges(days)
         if not edges:
             await interaction.followup.send(
                 "No interaction data available yet.", ephemeral=True
@@ -34,8 +40,8 @@ def register(
             )
         pagerank = nx.pagerank(graph, weight="weight")
         degree = nx.degree_centrality(graph.to_undirected())
-        reply_rows = await services.graph.fetch_reply_influence(lookback_days)
-        reaction_rows = await services.graph.fetch_reaction_influence(lookback_days)
+        reply_rows = await services.graph.fetch_reply_influence(days)
+        reaction_rows = await services.graph.fetch_reaction_influence(days)
         reply_map = {
             str(row["user_id"]): float(row.get("reply_count", 0)) for row in reply_rows
         }
