@@ -4,6 +4,7 @@ import discord
 from discord import app_commands
 
 from panoptibot.bot.context import ServiceContainer
+from panoptibot.bot.embeds import create_embed, EmbedColor
 from panoptibot.bot.resolver import resolve_channel_name, resolve_user_name
 from panoptibot.bot.security import enforce_user_command_access
 
@@ -46,35 +47,50 @@ def register(
             )
             return
 
-        # Format profile
+        # Format profile as embed
         display_name = resolve_user_name(user_id, guild)
-        lines = [
-            f"**Profile for {display_name}** (last {days} days)\n",
-            f"📊 **Activity**",
-            f"  Messages sent: {stats['total_messages']}",
-            f"  Avg content length: {stats['avg_content_length']:.0f} chars",
-        ]
+        embed = create_embed(
+            title=f"Profile: {display_name}",
+            description=f"Activity summary for the last {days} days",
+            color=EmbedColor.INFO,
+        )
+
+        # Activity stats
+        embed.add_field(
+            name="📊 Activity",
+            value=f"Messages: **{stats['total_messages']}**\nAvg length: **{stats['avg_content_length']:.0f}** chars",
+            inline=False,
+        )
 
         # Top channels
         if stats['top_channels']:
-            lines.append(f"\n📍 **Most Active Channels**")
-            for ch in stats['top_channels'][:5]:
-                channel_name = resolve_channel_name(ch['channel_id'], guild)
-                lines.append(f"  {channel_name}: {ch['count']} messages")
+            channel_lines = [
+                f"{resolve_channel_name(ch['channel_id'], guild)}: {ch['count']}"
+                for ch in stats['top_channels'][:5]
+            ]
+            embed.add_field(
+                name="📍 Most Active Channels",
+                value="\n".join(channel_lines) or "None",
+                inline=False,
+            )
 
         # Top emojis
         if stats['top_emojis']:
-            lines.append(f"\n😀 **Top Emojis**")
-            emoji_line = "  " + " ".join(
+            emoji_display = " ".join(
                 f"{e['emoji']}×{e['count']}" for e in stats['top_emojis'][:10]
             )
-            lines.append(emoji_line)
+            embed.add_field(name="😀 Top Emojis", value=emoji_display or "None", inline=False)
 
         # Interaction partners
         if stats['top_interactions']:
-            lines.append(f"\n👥 **Most Interactions With**")
-            for partner in stats['top_interactions'][:5]:
-                partner_name = resolve_user_name(partner['partner_id'], guild)
-                lines.append(f"  {partner_name}: {partner['weight']} interactions")
+            partner_lines = [
+                f"{resolve_user_name(p['partner_id'], guild)}: {p['weight']}"
+                for p in stats['top_interactions'][:5]
+            ]
+            embed.add_field(
+                name="👥 Top Interactions",
+                value="\n".join(partner_lines) or "None",
+                inline=False,
+            )
 
-        await interaction.followup.send("\n".join(lines), ephemeral=True)
+        await interaction.followup.send(embed=embed, ephemeral=True)

@@ -4,6 +4,7 @@ import discord
 from discord import app_commands
 
 from panoptibot.bot.context import ServiceContainer
+from panoptibot.bot.embeds import create_embed, EmbedColor
 from panoptibot.bot.resolver import resolve_user_name_async, resolve_channel_name
 from panoptibot.bot.security import enforce_user_command_access
 from panoptibot.catchup.social import SocialFact, render_catchup_bullets
@@ -58,9 +59,15 @@ def register(
             )
             return
         display_name = getattr(interaction.user, "display_name", str(interaction.user.id))
-        await interaction.followup.send(
-            "\n".join(render_catchup_bullets(facts, viewer_name=display_name)),
-            ephemeral=True,
+        bullet_lines = render_catchup_bullets(facts, viewer_name=display_name)
+
+        # Use embed for nicer formatting
+        embed = create_embed(
+            title=bullet_lines[0].replace("**", "").replace("\n", ""),
+            description="\n".join(bullet_lines[1:]),
+            color=EmbedColor.INFO,
         )
+
+        await interaction.followup.send(embed=embed, ephemeral=True)
 
     tree.add_command(group)
