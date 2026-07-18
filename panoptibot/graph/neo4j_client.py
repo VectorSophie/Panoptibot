@@ -266,6 +266,16 @@ class Neo4jClient:
             per_user=per_user,
         )
 
+    async def fetch_user_profile_stats(
+        self, user_id: str, lookback_days: int
+    ) -> dict[str, Any] | None:
+        rows = await self._execute_read(
+            graph_queries.USER_PROFILE_STATS_QUERY,
+            user_id=user_id,
+            cutoff=(datetime.now(UTC) - timedelta(days=lookback_days)).isoformat(),
+        )
+        return rows[0] if rows else None
+
     async def fetch_bonds_edges(
         self, lookback_days: int, limit: int = 500
     ) -> list[dict[str, Any]]:

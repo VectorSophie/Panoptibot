@@ -24,6 +24,7 @@ from panoptibot.commands import bonds as bonds_command
 from panoptibot.commands import catchup as catchup_command
 from panoptibot.commands import copycat as copycat_command
 from panoptibot.commands import culture as culture_command
+from panoptibot.commands import profile as profile_command
 from panoptibot.events.member_events import (
     handle_member_join,
     handle_member_remove,
@@ -81,6 +82,7 @@ class PanoptibotClient(discord.Client):
         copycat_command.register(self.tree, self.services)
         catchup_command.register(self.tree, self.services)
         culture_command.register(self.tree, self.services)
+        profile_command.register(self.tree, self.services)
         bonds_command.register(self.tree, self.services)
         graph_command.register(self.tree, self.services)
         health_command.register(self.tree, self.services)

@@ -159,3 +159,25 @@ RETURN user_id, emoji_usage[0..$per_user] AS top_emojis
 ORDER BY user_id
 LIMIT $limit
 """
+
+USER_PROFILE_STATS_QUERY = """
+MATCH (u:User {id: $user_id})-[:SENT]->(m:Message)
+WHERE m.created_at >= $cutoff AND m.deleted = false
+WITH u, COUNT(m) AS total_messages, AVG(m.content_length) AS avg_content_length
+OPTIONAL MATCH (u)-[:SENT]->(m2:Message)-[:IN_CHANNEL]->(c:Channel)
+WHERE m2.created_at >= $cutoff
+WITH u, total_messages, avg_content_length, c.id AS channel_id, COUNT(m2) AS channel_count
+ORDER BY channel_count DESC
+WITH u, total_messages, avg_content_length, COLLECT({channel_id: channel_id, count: channel_count})[..5] AS top_channels
+OPTIONAL MATCH (u)-[:SENT]->(m3:Message)
+WHERE m3.created_at >= $cutoff
+UNWIND m3.emoji_list AS emoji
+WITH u, total_messages, avg_content_length, top_channels, emoji, COUNT(emoji) AS emoji_count
+ORDER BY emoji_count DESC
+WITH u, total_messages, avg_content_length, top_channels, COLLECT({emoji: emoji, count: emoji_count})[..10] AS top_emojis
+OPTIONAL MATCH (u)-[inter:INTERACTED_WITH]->(partner:User)
+WITH total_messages, avg_content_length, top_channels, top_emojis, partner.id AS partner_id, inter.weight AS weight
+ORDER BY weight DESC
+RETURN total_messages, avg_content_length, top_channels, top_emojis, COLLECT({partner_id: partner_id, weight: weight})[..5] AS top_interactions
+LIMIT 1
+"""
