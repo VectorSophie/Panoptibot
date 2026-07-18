@@ -5,6 +5,7 @@ import discord
 from discord import app_commands
 
 from panoptibot.bot.context import ServiceContainer
+from panoptibot.bot.resolver import resolve_user_name, resolve_channel_name
 from panoptibot.bot.security import enforce_command_access
 
 
@@ -53,16 +54,19 @@ def register(
                 "Ranked catch-up messages:",
             ]
             guild_id = interaction.guild_id
+            guild = interaction.guild
             for item in ranked:
                 message_ref = _format_message_reference(
                     guild_id, item.channel_id, item.message_id
                 )
+                author = resolve_user_name(item.author_id, guild)
+                channel = resolve_channel_name(item.channel_id, guild)
                 lines.append(
-                    f"- message {message_ref} in <#{item.channel_id}> by <@{item.author_id}> "
+                    f"- message {message_ref} in {channel} by {author} "
                     f"score={item.score:.2f} reactions={item.reaction_count} replies={item.reply_count}"
                 )
             thread_lines = [
-                f"- thread candidate {_format_message_reference(guild_id, item.channel_id, item.message_id)} in <#{item.channel_id}>"
+                f"- thread candidate {_format_message_reference(guild_id, item.channel_id, item.message_id)} in {resolve_channel_name(item.channel_id, guild)}"
                 for item in ranked
                 if item.reply_count > 0
             ]

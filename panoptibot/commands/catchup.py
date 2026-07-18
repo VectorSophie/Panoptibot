@@ -4,6 +4,7 @@ import discord
 from discord import app_commands
 
 from panoptibot.bot.context import ServiceContainer
+from panoptibot.bot.resolver import resolve_user_name_async, resolve_channel_name
 from panoptibot.bot.security import enforce_user_command_access
 from panoptibot.catchup.social import SocialFact, render_catchup_bullets
 from panoptibot.commands.summary import _format_message_reference
@@ -35,29 +36,9 @@ def register(
 
         # Resolve user IDs to display names and channel IDs to channel names
         guild = interaction.guild
-        facts = []
-        for item in ranked:
-            # Try to get the actual Discord user's display name
-            author_name = f"@{item.author_id}"
-            if guild:
-                try:
-                    member = await guild.fetch_member(int(item.author_id))
-                    author_name = f"@{member.display_name}"
-                except (discord.NotFound, discord.HTTPException, ValueError):
-                    pass
-
-            # Try to get the actual channel name
-            channel_name = f"#{item.channel_id}"
-            if guild:
-                try:
-                    channel = guild.get_channel(int(item.channel_id))
-                    if channel and hasattr(channel, 'name'):
-                        channel_name = f"#{channel.name}"
-                except (ValueError, AttributeError):
-                    pass
-
-            facts.append(SocialFact(
-                subject_names=(author_name,),
+        facts = [
+            SocialFact(
+                subject_names=(await resolve_user_name_async(item.author_id, guild),),
                 related_names=(),
                 action="said_something",
                 evidence_urls=(
@@ -66,8 +47,10 @@ def register(
                     ),
                 ),
                 confidence=0.8,
-                channel_name=channel_name,
-            ))
+                channel_name=resolve_channel_name(item.channel_id, guild),
+            )
+            for item in ranked
+        ]
 
         if not facts:
             await interaction.followup.send(
